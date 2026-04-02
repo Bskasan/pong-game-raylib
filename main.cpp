@@ -15,6 +15,10 @@
 #define SCREEN_WIDTH 1280
 #define SCREEN_HEIGHT 800
 
+#define global_variable static
+
+global_variable bool is_ai_player_active;
+
 struct Circle
 {
         float x, y;
