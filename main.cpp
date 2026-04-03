@@ -17,7 +17,7 @@
 
 #define global_variable static
 
-global_variable bool is_ai_player_active;
+global_variable bool play_with_ai = true;
 
 struct Circle
 {
@@ -64,6 +64,19 @@ struct Paddle
                 DrawRectangleRec(GetRect(), WHITE);
         }
         
+        void LimitMovement()
+        {
+                if(y - height / 2 <= 0)
+                {
+                        y = height / 2;
+                }
+                
+                if(y + height / 2 >= SCREEN_HEIGHT)
+                {
+                        y = SCREEN_HEIGHT - height / 2;
+                }
+        }
+        
         void Move()
         {
                 if(IsKeyDown(KEY_UP))
@@ -76,16 +89,28 @@ struct Paddle
                         y += speed * GetFrameTime();
                 }
                 
-                if(y - height / 2 <= 0)
+                LimitMovement();
+        }
+};
+
+
+struct CPUPaddle
+{
+        Paddle paddle;
+        
+        void UpdateAI(int ball_y)
+        {
+                if(paddle.y + paddle.height / 2 > ball_y)
                 {
-                        y = height / 2;
+                        paddle.y -= paddle.speed * GetFrameTime();
                 }
                 
-                if(y + height / 2 >= SCREEN_HEIGHT)
+                if(paddle.y + paddle.height / 2 <= ball_y)
                 {
-                        y = SCREEN_HEIGHT - height / 2;
+                        paddle.y += paddle.speed * GetFrameTime();
                 }
                 
+                paddle.LimitMovement();
         }
 };
 
@@ -167,8 +192,16 @@ int main(void)
         // TOP-LEFT is the 0,0 for our game as position
         
         Ball ball = {};
-        Paddle left_paddle = {};
+        
         Paddle right_paddle = {};
+        Paddle left_paddle = {};
+        CPUPaddle cpu_paddle = {};
+        
+        right_paddle.x = SCREEN_WIDTH - 25;
+        right_paddle.y = SCREEN_HEIGHT / 2;
+        right_paddle.width = 30;
+        right_paddle.height = 150;
+        right_paddle.speed = 300;
         
         left_paddle.x = 25;
         left_paddle.y = SCREEN_HEIGHT / 2;
@@ -176,11 +209,11 @@ int main(void)
         left_paddle.height = 150;
         left_paddle.speed = 300;
         
-        right_paddle.x = SCREEN_WIDTH - 25;
-        right_paddle.y = SCREEN_HEIGHT / 2;
-        right_paddle.width = 30;
-        right_paddle.height = 150;
-        right_paddle.speed = 300;
+        cpu_paddle.paddle.x = 25;
+        cpu_paddle.paddle.y = SCREEN_HEIGHT / 2;
+        cpu_paddle.paddle.width  = 30;
+        cpu_paddle.paddle.height = 150;
+        cpu_paddle.paddle.speed = 300;
         
         ball.circle.radius = 20;
         ball.circle.y = SCREEN_HEIGHT / 2;
@@ -197,11 +230,73 @@ int main(void)
                 
                 ball.Move();
                 right_paddle.Move();
-                left_paddle.Move();
-                // left_paddle needs movement too (AI or second player keys)
                 
-                // Then check and resolve collisions
                 Circle circle_object = ball.circle;
+                Paddle cpu_paddle_for_collision = cpu_paddle.paddle;
+                
+                if(play_with_ai)
+                {
+                        cpu_paddle.UpdateAI(ball.circle.y);
+                        
+                        if(collision_check_for_circle(&circle_object, &cpu_paddle_for_collision))
+                        {
+                                Rectangle rect = cpu_paddle_for_collision.GetRect();
+                                
+                                // Finds the closest point
+                                float nearest_x = clamp(circle_object.x, rect.x, rect.x + rect.width);
+                                float nearest_y = clamp(circle_object.y, rect.y, rect.y + rect.height);
+                                
+                                float dx = circle_object.x - nearest_x;
+                                float dy = circle_object.y - nearest_y;
+                                
+                                float distance = square_foot(dx * dx + dy * dy);
+                                
+                                float overlap = circle_object.radius - distance;
+                                
+                                if(distance > 0.0f)
+                                {
+                                        circle_object.x += (dx / distance) * overlap;
+                                        circle_object.y += (dy / distance) * overlap;
+                                }
+                                
+                                // resolve overlap, then bounce
+                                ball.speed_x *= -1.05f;
+                                ball.circle = circle_object;
+                        }
+                }
+                else
+                {
+                        left_paddle.Move();
+                        
+                        if(collision_check_for_circle(&circle_object, &left_paddle))
+                        {
+                                Rectangle rect = left_paddle.GetRect();
+                                
+                                float nearest_x = clamp(circle_object.x, rect.x, rect.x + rect.width);
+                                float nearest_y = clamp(circle_object.y, rect.y, rect.y + rect.height);
+                                
+                                float dx = circle_object.x - nearest_x;
+                                float dy = circle_object.y - nearest_y;
+                                
+                                float distance = square_foot(dx * dx + dy * dy);
+                                
+                                float overlap = circle_object.radius - distance;
+                                
+                                if(distance > 0.0f)
+                                {
+                                        circle_object.x += (dx / distance) * overlap;
+                                        circle_object.y += (dy / distance) * overlap;
+                                }
+                                
+                                // resolve overlap, then bounce
+                                ball.speed_x *= -1.05f;
+                                ball.circle = circle_object;
+                        }
+                }
+                
+                // left_paddle needs movement too (AI or second player keys)
+                // Then check and resolve collisions
+                
                 if(collision_check_for_circle(&circle_object, &right_paddle))
                 {
                         Rectangle rect = right_paddle.GetRect();
@@ -223,31 +318,9 @@ int main(void)
                         
                         // resolve overlap, then bounce
                         ball.speed_x *= -1.05f;
+                        ball.circle = circle_object;
                 }
                 
-                if(collision_check_for_circle(&circle_object, &left_paddle))
-                {
-                        Rectangle rect = left_paddle.GetRect();
-                        
-                        float nearest_x = clamp(circle_object.x, rect.x, rect.x + rect.width);
-                        float nearest_y = clamp(circle_object.y, rect.y, rect.y + rect.height);
-                        
-                        float dx = circle_object.x - nearest_x;
-                        float dy = circle_object.y - nearest_y;
-                        
-                        float distance = square_foot(dx * dx + dy * dy);
-                        
-                        float overlap = circle_object.radius - distance;
-                        
-                        if(distance > 0.0f)
-                        {
-                                circle_object.x += (dx / distance) * overlap;
-                                circle_object.y += (dy / distance) * overlap;
-                        }
-                        
-                        // resolve overlap, then bounce
-                        ball.speed_x *= -1.05f;
-                }
                 
                 // Draw
                 BeginDrawing();
@@ -259,7 +332,12 @@ int main(void)
                 DrawLine(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT, WHITE);
                 
                 ball.Draw();
-                left_paddle.Draw();
+                
+                if(play_with_ai)
+                        cpu_paddle.paddle.Draw();
+                else
+                        left_paddle.Draw();
+                
                 right_paddle.Draw();
                 
                 EndDrawing();
