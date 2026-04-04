@@ -19,6 +19,10 @@
 
 global_variable bool play_with_ai = true;
 
+global_variable int player_score;
+global_variable int player_second_score;
+global_variable int cpu_score;
+
 struct Circle
 {
         float x, y;
@@ -32,7 +36,7 @@ struct Ball
         
         void Draw()
         {
-                DrawCircle((int)circle.x, (int)circle.y, circle.radius, WHITE);
+                DrawCircle((int)circle.x, (int)circle.y, circle.radius, YELLOW);
         }
         
         void Move()
@@ -40,11 +44,42 @@ struct Ball
                 circle.x += speed_x * GetFrameTime();
                 circle.y += speed_y * GetFrameTime();
                 
+                // Score
+                if(circle.x + circle.radius >= SCREEN_WIDTH)
+                {
+                        if(play_with_ai)
+                                cpu_score++;
+                        else
+                                player_second_score++;
+                        
+                        ResetBall();
+                }
+                
+                if(circle.x - circle.radius <= 0)
+                {
+                        player_score++;
+                        ResetBall();
+                }
+                
                 // Top/bottom bounce — keep this
                 if(circle.y + circle.radius >= SCREEN_HEIGHT || circle.y - circle.radius <= 0)
                 {
                         speed_y *= -1;
                 }
+        }
+        
+        void ResetBall()
+        {
+                circle.x = SCREEN_WIDTH / 2;
+                circle.y = SCREEN_HEIGHT / 2;
+                
+                int speed_choices[2] = {1, -1};
+                
+                speed_x = 300;
+                speed_y = 300;
+                
+                speed_x *= speed_choices[GetRandomValue(0,1)];
+                speed_y *= speed_choices[GetRandomValue(0,1)];
         }
 };
 
@@ -61,7 +96,7 @@ struct Paddle
         
         void Draw()
         {
-                DrawRectangleRec(GetRect(), WHITE);
+                DrawRectangleRounded(GetRect(), 0.8, 0, WHITE);
         }
         
         void LimitMovement()
@@ -326,7 +361,10 @@ int main(void)
                 BeginDrawing();
                 
                 // Clear Background before each frame
-                ClearBackground(BLACK);
+                ClearBackground(DARKGRAY);
+                
+                DrawRectangle(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT, GRAY);
+                DrawCircle(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 150, LIGHTGRAY);
                 
                 // TODO(bekir): Refactoring neeeded for game arena elements.
                 DrawLine(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT, WHITE);
@@ -339,6 +377,9 @@ int main(void)
                         left_paddle.Draw();
                 
                 right_paddle.Draw();
+                
+                DrawText(TextFormat("%i", play_with_ai ? cpu_score : player_second_score), SCREEN_WIDTH / 4 - 20, 20, 80, WHITE);
+                DrawText(TextFormat("%i", player_score), 3 * SCREEN_WIDTH / 4 - 20, 20, 80, WHITE);
                 
                 EndDrawing();
         }
