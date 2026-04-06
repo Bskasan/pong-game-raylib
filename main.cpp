@@ -16,12 +16,16 @@
 #define SCREEN_HEIGHT 800
 
 #define global_variable static
+#define internal static
 
 global_variable bool play_with_ai = true;
 
-global_variable int player_score;
-global_variable int player_second_score;
-global_variable int cpu_score;
+struct Score
+{
+        int player_score;
+        int player_second_score;
+        int cpu_score;
+};
 
 struct Circle
 {
@@ -39,7 +43,7 @@ struct Ball
                 DrawCircle((int)circle.x, (int)circle.y, circle.radius, YELLOW);
         }
         
-        void Move()
+        void Move(Score *score)
         {
                 circle.x += speed_x * GetFrameTime();
                 circle.y += speed_y * GetFrameTime();
@@ -48,16 +52,16 @@ struct Ball
                 if(circle.x + circle.radius >= SCREEN_WIDTH)
                 {
                         if(play_with_ai)
-                                cpu_score++;
+                                score->cpu_score++;
                         else
-                                player_second_score++;
+                                score->player_second_score++;
                         
                         ResetBall();
                 }
                 
                 if(circle.x - circle.radius <= 0)
                 {
-                        player_score++;
+                        score->player_score++;
                         ResetBall();
                 }
                 
@@ -129,6 +133,7 @@ struct Paddle
 };
 
 
+
 struct CPUPaddle
 {
         Paddle paddle;
@@ -148,6 +153,18 @@ struct CPUPaddle
                 paddle.LimitMovement();
         }
 };
+
+struct GameObjects
+{
+        Ball ball;
+        Paddle right_paddle;
+        Paddle left_paddle;
+        CPUPaddle cpu_paddle;
+};
+
+global_variable Score score_values;
+global_variable GameObjects game_entities;
+
 
 float clamp(float value, float min, float max)
 {
@@ -217,169 +234,141 @@ bool collision_check_for_circle(Circle* circle, Paddle* paddle)
 }
 
 
+internal void
+InitGameEntities(GameObjects *game_entities)
+{
+        game_entities->right_paddle.x = SCREEN_WIDTH - 25;
+        game_entities->right_paddle.y = SCREEN_HEIGHT / 2;
+        game_entities->right_paddle.width = 30;
+        game_entities->right_paddle.height = 150;
+        game_entities->right_paddle.speed = 300;
+        
+        game_entities->left_paddle.x = 25;
+        game_entities->left_paddle.y = SCREEN_HEIGHT / 2;
+        game_entities->left_paddle.width = 30;
+        game_entities->left_paddle.height = 150;
+        game_entities->left_paddle.speed = 300;
+        
+        game_entities->cpu_paddle.paddle.x = 25;
+        game_entities->cpu_paddle.paddle.y = SCREEN_HEIGHT / 2;
+        game_entities->cpu_paddle.paddle.width  = 30;
+        game_entities->cpu_paddle.paddle.height = 150;
+        game_entities->cpu_paddle.paddle.speed = 300;
+        
+        game_entities->ball.circle.radius = 20;
+        game_entities->ball.circle.y = SCREEN_HEIGHT / 2;
+        game_entities->ball.circle.x = SCREEN_WIDTH / 2;
+        game_entities->ball.speed_x = 300;
+        game_entities->ball.speed_y = 300;
+}
+
+internal void 
+RenderGameObjects()
+{
+        // Clear Background before each frame
+        ClearBackground(DARKGRAY);
+        DrawRectangle(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT, GRAY);
+        
+        DrawCircle(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 150, LIGHTGRAY);
+        DrawLine(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT, WHITE);
+        
+        game_entities.ball.Draw();
+        
+        if(play_with_ai)
+                game_entities.cpu_paddle.paddle.Draw();
+        else
+                game_entities.left_paddle.Draw();
+        
+        game_entities.right_paddle.Draw();
+        
+        DrawText(TextFormat("%i", play_with_ai ? score_values.cpu_score : score_values.player_second_score), SCREEN_WIDTH / 4 - 20, 20, 80, WHITE);
+        DrawText(TextFormat("%i", score_values.player_score), 3 * SCREEN_WIDTH / 4 - 20, 20, 80, WHITE);
+}
+
+internal bool
+ResolveBallPaddleCollision(Ball *ball, Paddle *paddle)
+{
+        Rectangle rect = paddle->GetRect();
+        
+        // Find the nearest point on the paddle rectangle to the ball center
+        float nearest_x = clamp(ball->circle.x, rect.x, rect.x + rect.width);
+        float nearest_y = clamp(ball->circle.y, rect.y, rect.y + rect.height);
+        
+        float dx = ball->circle.x - nearest_x;
+        float dy = ball->circle.y - nearest_y;
+        
+        float dist_sq = dx * dx + dy * dy;
+        float radius = ball->circle.radius;
+        
+        // Compare squared distances to avoid the sqrt in the common (no-hit) case
+        if(dist_sq >= radius * radius) return false;
+        
+        if(dist_sq > 0.0f)
+        {
+                // Normal case: push the ball out along the contact normal
+                float dist = square_foot(dist_sq);
+                float overlap = radius - dist;
+                
+                ball->circle.x += (dx / dist) * overlap;
+                ball->circle.y += (dy / dist) * overlap;
+        }
+        
+        else
+        {
+                // Degenerate case: ball center is inside the paddle.
+                // Push it out horizontally, opposite to its current travel direction.
+                ball->circle.x += (ball->speed_x > 0 ? -radius : radius);
+        }
+        
+        ball->speed_x *= -1.05f;
+        return true;
+}
+
+internal void
+UpdateGame()
+{
+        
+        // Update Section
+        game_entities.ball.Move(&score_values);
+        game_entities.right_paddle.Move();
+        
+        Circle circle_object = game_entities.ball.circle;
+        Paddle cpu_paddle_for_collision = game_entities.cpu_paddle.paddle;
+        
+        if(play_with_ai)
+        {
+                game_entities.cpu_paddle.UpdateAI(game_entities.ball.circle.y);
+                ResolveBallPaddleCollision(&game_entities.ball, &game_entities.cpu_paddle.paddle);
+        }
+        else
+        {
+                game_entities.left_paddle.Move();
+                ResolveBallPaddleCollision(&game_entities.ball, &game_entities.left_paddle);
+        }
+        
+        // left_paddle needs movement too (AI or second player keys)
+        // Then check and resolve collisions
+        
+        ResolveBallPaddleCollision(&game_entities.ball, &game_entities.right_paddle);
+        
+}
+
 int main(void)
 {;
         InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "My Pong Game");
         // Set FPS based on your screen
         SetWindowState(FLAG_VSYNC_HINT);
         
-        // Update Display 60 times per second with this.
-        // TOP-LEFT is the 0,0 for our game as position
-        
-        Ball ball = {};
-        
-        Paddle right_paddle = {};
-        Paddle left_paddle = {};
-        CPUPaddle cpu_paddle = {};
-        
-        right_paddle.x = SCREEN_WIDTH - 25;
-        right_paddle.y = SCREEN_HEIGHT / 2;
-        right_paddle.width = 30;
-        right_paddle.height = 150;
-        right_paddle.speed = 300;
-        
-        left_paddle.x = 25;
-        left_paddle.y = SCREEN_HEIGHT / 2;
-        left_paddle.width = 30;
-        left_paddle.height = 150;
-        left_paddle.speed = 300;
-        
-        cpu_paddle.paddle.x = 25;
-        cpu_paddle.paddle.y = SCREEN_HEIGHT / 2;
-        cpu_paddle.paddle.width  = 30;
-        cpu_paddle.paddle.height = 150;
-        cpu_paddle.paddle.speed = 300;
-        
-        ball.circle.radius = 20;
-        ball.circle.y = SCREEN_HEIGHT / 2;
-        ball.circle.x = SCREEN_WIDTH / 2;
-        ball.speed_x = 300;
-        ball.speed_y = 300;
-        
+        InitGameEntities(&game_entities);
         
         while(!WindowShouldClose())
         {
-                // Update Section
-                
-                // Animate the Ball  
-                
-                ball.Move();
-                right_paddle.Move();
-                
-                Circle circle_object = ball.circle;
-                Paddle cpu_paddle_for_collision = cpu_paddle.paddle;
-                
-                if(play_with_ai)
-                {
-                        cpu_paddle.UpdateAI(ball.circle.y);
-                        
-                        if(collision_check_for_circle(&circle_object, &cpu_paddle_for_collision))
-                        {
-                                Rectangle rect = cpu_paddle_for_collision.GetRect();
-                                
-                                // Finds the closest point
-                                float nearest_x = clamp(circle_object.x, rect.x, rect.x + rect.width);
-                                float nearest_y = clamp(circle_object.y, rect.y, rect.y + rect.height);
-                                
-                                float dx = circle_object.x - nearest_x;
-                                float dy = circle_object.y - nearest_y;
-                                
-                                float distance = square_foot(dx * dx + dy * dy);
-                                
-                                float overlap = circle_object.radius - distance;
-                                
-                                if(distance > 0.0f)
-                                {
-                                        circle_object.x += (dx / distance) * overlap;
-                                        circle_object.y += (dy / distance) * overlap;
-                                }
-                                
-                                // resolve overlap, then bounce
-                                ball.speed_x *= -1.05f;
-                                ball.circle = circle_object;
-                        }
-                }
-                else
-                {
-                        left_paddle.Move();
-                        
-                        if(collision_check_for_circle(&circle_object, &left_paddle))
-                        {
-                                Rectangle rect = left_paddle.GetRect();
-                                
-                                float nearest_x = clamp(circle_object.x, rect.x, rect.x + rect.width);
-                                float nearest_y = clamp(circle_object.y, rect.y, rect.y + rect.height);
-                                
-                                float dx = circle_object.x - nearest_x;
-                                float dy = circle_object.y - nearest_y;
-                                
-                                float distance = square_foot(dx * dx + dy * dy);
-                                
-                                float overlap = circle_object.radius - distance;
-                                
-                                if(distance > 0.0f)
-                                {
-                                        circle_object.x += (dx / distance) * overlap;
-                                        circle_object.y += (dy / distance) * overlap;
-                                }
-                                
-                                // resolve overlap, then bounce
-                                ball.speed_x *= -1.05f;
-                                ball.circle = circle_object;
-                        }
-                }
-                
-                // left_paddle needs movement too (AI or second player keys)
-                // Then check and resolve collisions
-                
-                if(collision_check_for_circle(&circle_object, &right_paddle))
-                {
-                        Rectangle rect = right_paddle.GetRect();
-                        
-                        float nearest_x = clamp(circle_object.x, rect.x, rect.x + rect.width);
-                        float nearest_y = clamp(circle_object.y, rect.y, rect.y + rect.height);
-                        
-                        float dx = circle_object.x - nearest_x;
-                        float dy = circle_object.y - nearest_y;
-                        
-                        float distance = square_foot(dx * dx + dy * dy);
-                        float overlap = circle_object.radius - distance;
-                        
-                        if(distance > 0.0f)
-                        {
-                                circle_object.x += (dx / distance) * overlap;
-                                circle_object.y += (dy / distance) * overlap;
-                        }
-                        
-                        // resolve overlap, then bounce
-                        ball.speed_x *= -1.05f;
-                        ball.circle = circle_object;
-                }
-                
+                UpdateGame();
                 
                 // Draw
                 BeginDrawing();
                 
-                // Clear Background before each frame
-                ClearBackground(DARKGRAY);
-                
-                DrawRectangle(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT, GRAY);
-                DrawCircle(SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2, 150, LIGHTGRAY);
-                
-                // TODO(bekir): Refactoring neeeded for game arena elements.
-                DrawLine(SCREEN_WIDTH / 2, 0, SCREEN_WIDTH / 2, SCREEN_HEIGHT, WHITE);
-                
-                ball.Draw();
-                
-                if(play_with_ai)
-                        cpu_paddle.paddle.Draw();
-                else
-                        left_paddle.Draw();
-                
-                right_paddle.Draw();
-                
-                DrawText(TextFormat("%i", play_with_ai ? cpu_score : player_second_score), SCREEN_WIDTH / 4 - 20, 20, 80, WHITE);
-                DrawText(TextFormat("%i", player_score), 3 * SCREEN_WIDTH / 4 - 20, 20, 80, WHITE);
+                RenderGameObjects();
                 
                 EndDrawing();
         }
