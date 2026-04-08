@@ -162,9 +162,27 @@ struct GameObjects
         CPUPaddle cpu_paddle;
 };
 
+struct Title
+{
+        char* name;
+        int size;
+        
+        int CalculateSize()
+        {
+                size = MeasureText(name, 40);
+                return (size);
+        }
+};
+
+enum GameScreen 
+{
+        MAIN = 0, GAMEPLAY, INGAME
+};
+
 global_variable Score score_values;
 global_variable GameObjects game_entities;
-
+global_variable float current_speed_x;
+global_variable float current_speed_y;
 
 float clamp(float value, float min, float max)
 {
@@ -175,39 +193,39 @@ float clamp(float value, float min, float max)
 
 float square_foot(float val)
 {
-	int left = 0, right = val, mid;
-	float sqrt;
-	while (left <= right)	//finding the integral part 
-	{
+        int left = 0, right = val, mid;
+        float sqrt;
+        while (left <= right)	//finding the integral part 
+        {
                 
-		mid = (left + right) / 2;
-		if (mid *mid == val)
-		{
-			sqrt = mid;
-			break;
-		}
-		if (mid * mid < val)
-		{
-			sqrt = left;
-			left = mid + 1;
-		}
-		else
-		{
-			right = mid - 1;
-		}
-	}
+                mid = (left + right) / 2;
+                if (mid *mid == val)
+                {
+                        sqrt = mid;
+                        break;
+                }
+                if (mid * mid < val)
+                {
+                        sqrt = left;
+                        left = mid + 1;
+                }
+                else
+                {
+                        right = mid - 1;
+                }
+        }
         
-	float inc_val = 0.1;
-	for (int i = 0; i < 3; i++)	///finding the fractional part
-	{
-		while (sqrt * sqrt <= val)
-		{
-			sqrt += inc_val;
-		}
-		sqrt = sqrt - inc_val;
-		inc_val = inc_val / 10;
-	}
-	return sqrt;
+        float inc_val = 0.1;
+        for (int i = 0; i < 3; i++)	///finding the fractional part
+        {
+                while (sqrt * sqrt <= val)
+                {
+                        sqrt += inc_val;
+                }
+                sqrt = sqrt - inc_val;
+                inc_val = inc_val / 10;
+        }
+        return sqrt;
 }
 
 
@@ -263,7 +281,7 @@ InitGameEntities(GameObjects *game_entities)
 }
 
 internal void 
-RenderGameObjects()
+DrawGameObjects()
 {
         // Clear Background before each frame
         ClearBackground(DARKGRAY);
@@ -321,6 +339,7 @@ ResolveBallPaddleCollision(Ball *ball, Paddle *paddle)
         }
         
         ball->speed_x *= -1.05f;
+        
         return true;
 }
 
@@ -350,25 +369,117 @@ UpdateGame()
         // Then check and resolve collisions
         
         ResolveBallPaddleCollision(&game_entities.ball, &game_entities.right_paddle);
-        
 }
 
 int main(void)
 {;
         InitWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "My Pong Game");
+        SetExitKey(KEY_NULL);
+        
         // Set FPS based on your screen
         SetWindowState(FLAG_VSYNC_HINT);
         
         InitGameEntities(&game_entities);
         
+        GameScreen current_scene = MAIN;
+        
+        Title game_title  = {};
+        game_title.name = "Welcome the Pong Game!"; 
+        game_title.size = game_title.CalculateSize();
+        
+        Title menu_title_with_ai = {};
+        menu_title_with_ai.name = "Press \'Enter\' to Start the Game with AI or \'Esc\' to exit";
+        menu_title_with_ai.size = menu_title_with_ai.CalculateSize();
+        
+        Title menu_title_with_player = {};
+        menu_title_with_player.name =  "Press \'P\' to Start the Game with 2 Players or \'Esc\' to exit";
+        menu_title_with_player.size = menu_title_with_player.CalculateSize();
+        
+        Title in_game_menu_title = {};
+        in_game_menu_title.name = "Press \'P\' to go back to game or \'ESC\' to quit the game";
+        in_game_menu_title.size = in_game_menu_title.CalculateSize();
+        
+        int y_offset = 50;
+        
         while(!WindowShouldClose())
         {
-                UpdateGame();
+                
+                Vector2 mouse_position = GetMousePosition();
+                
+                // UpdateScenes
+                switch(current_scene)
+                {
+                        case MAIN:
+                        {
+                                if(IsKeyPressed(KEY_ENTER))
+                                {
+                                        play_with_ai = true;
+                                        current_scene = GAMEPLAY;
+                                        InitGameEntities(&game_entities);
+                                        score_values = {};
+                                }
+                                else if(IsKeyPressed(KEY_P))
+                                {
+                                        play_with_ai = false;
+                                        current_scene = GAMEPLAY;
+                                        InitGameEntities(&game_entities);
+                                        score_values = {};
+                                }
+                                
+                        }break;
+                        
+                        case INGAME:
+                        {
+                                if(IsKeyPressed(KEY_P))
+                                {
+                                        current_scene = GAMEPLAY;
+                                }
+                                
+                                if(IsKeyPressed(KEY_ESCAPE))
+                                {
+                                        current_scene = MAIN;
+                                }
+                        }break;
+                        
+                        case GAMEPLAY:
+                        {
+                                if(IsKeyPressed(KEY_SPACE))
+                                {
+                                        current_scene = INGAME;
+                                }
+                                
+                                UpdateGame();
+                        }break;
+                }
                 
                 // Draw
                 BeginDrawing();
                 
-                RenderGameObjects();
+                switch(current_scene)
+                {
+                        case MAIN:
+                        {
+                                
+                                ClearBackground(GRAY);
+                                DrawText(game_title.name, (SCREEN_WIDTH / 2) - (game_title.size / 2), SCREEN_HEIGHT / 2 - y_offset, 40, LIGHTGRAY);
+                                DrawText(menu_title_with_ai.name, (SCREEN_WIDTH / 2) - (menu_title_with_ai.size/ 2), (SCREEN_HEIGHT / 2), 40, LIGHTGRAY);
+                                DrawText(menu_title_with_player.name, (SCREEN_WIDTH / 2) - (menu_title_with_player.size / 2), 
+                                         (SCREEN_HEIGHT / 2) + y_offset, 40, LIGHTGRAY);
+                        }break;
+                        
+                        case INGAME:
+                        {
+                                
+                                ClearBackground(GRAY);
+                                DrawText(in_game_menu_title.name, (SCREEN_WIDTH / 2) - (in_game_menu_title.size / 2), SCREEN_HEIGHT / 2 - y_offset, 40, LIGHTGRAY);
+                        }break;
+                        
+                        case GAMEPLAY:
+                        {
+                                DrawGameObjects();
+                                
+                        }break;
+                }
                 
                 EndDrawing();
         }
