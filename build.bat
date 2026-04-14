@@ -1,9 +1,31 @@
 @echo off
+set PROJ=C:\No-Engine-Game-Dev\raylib-pong
+set CONFIG=%1
+if "%CONFIG%"=="" set CONFIG=release
 
-:: Update the paths below to match your local project directory
+if /I "%CONFIG%"=="release" (
+    set OUTDIR=build\release
+    set CFLAGS=/O2 /DNDEBUG /GL /MD /EHsc /std:c++17 /nologo
+    set LFLAGS=/LTCG /OPT:REF /OPT:ICF /SUBSYSTEM:CONSOLE
+) else (
+    set OUTDIR=build\debug
+    set CFLAGS=/Zi /Od /MDd /EHsc /std:c++17 /nologo
+    set LFLAGS=/DEBUG /SUBSYSTEM:CONSOLE
+)
 
-mkdir build
-pushd build
-pwd 
-cl /Zi /MD C:\No-Engine-Game-Dev\raylib-pong\main.cpp /I "C:\No-Engine-Game-Dev\raylib-pong\include" /link /NODEFAULTLIB:LIBCMT /LIBPATH:"C:\No-Engine-Game-Dev\raylib-pong\lib" raylib.lib winmm.lib gdi32.lib opengl32.lib user32.lib shell32.lib
-popd 
+if not exist %OUTDIR% mkdir %OUTDIR%
+pushd %OUTDIR%
+
+cl %CFLAGS% ^
+   /I "%PROJ%\include" ^
+   /I "%PROJ%\src" ^
+   "%PROJ%\src\main.cpp" ^
+   "%PROJ%\src\game.cpp" ^
+   "%PROJ%\src\render.cpp" ^
+   "%PROJ%\src\entities.cpp" ^
+   "%PROJ%\src\collision.cpp" ^
+   /link %LFLAGS% ^
+   /LIBPATH:"%PROJ%\lib" ^
+   raylib.lib winmm.lib gdi32.lib opengl32.lib user32.lib shell32.lib
+
+popd
