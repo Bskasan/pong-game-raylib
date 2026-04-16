@@ -41,6 +41,15 @@ static void UpdateScene(GameState *game_state)
     }
 }
 
+int StartGame()
+{
+    int x = 2;
+    int y = 3;
+    
+    int sum = x + y;
+    
+    return sum;
+}
 
 static void DrawScene(GameState *game_state)
 {

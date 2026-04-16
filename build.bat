@@ -1,15 +1,15 @@
 @echo off
 set PROJ=C:\No-Engine-Game-Dev\raylib-pong
 set CONFIG=%1
-if "%CONFIG%"=="" set CONFIG=release
+if "%CONFIG%"=="" set CONFIG=debug
 
 if /I "%CONFIG%"=="release" (
     set OUTDIR=build\release
-    set CFLAGS=/O2 /DNDEBUG /GL /MD /EHsc /std:c++17 /nologo
+    set CFLAGS=/O2 /DNDEBUG /GL /MD /EHsc /nologo
     set LFLAGS=/LTCG /OPT:REF /OPT:ICF /SUBSYSTEM:CONSOLE
 ) else (
     set OUTDIR=build\debug
-    set CFLAGS=/Zi /Od /MDd /EHsc /std:c++17 /nologo
+    set CFLAGS=/Zi /Od /MDd /EHsc /nologo
     set LFLAGS=/DEBUG /SUBSYSTEM:CONSOLE
 )
 

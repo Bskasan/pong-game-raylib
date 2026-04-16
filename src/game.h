@@ -4,14 +4,14 @@
 
 #include "entities.h"
 
-enum class Scene
+enum Scene
 {
     Main,
     Gameplay,
     Paused,
 };
 
-enum class Mode
+enum Mode
 {
     VersusAI,
     TwoPlayer,
