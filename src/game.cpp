@@ -33,7 +33,7 @@ void GameStartRound(GameState *game_state, Mode mode)
     game_state->score          = { 0, 0 };
     game_state->left_paddle.y  = SCREEN_HEIGHT * 0.5f;
     game_state->right_paddle.y = SCREEN_HEIGHT * 0.5f;
-    
+
     BallReset(&game_state->ball);
 }
 

@@ -10,3 +10,6 @@ build/
 
 # VS cruft
 .vs/
+
+# Text Files\
+*.txt

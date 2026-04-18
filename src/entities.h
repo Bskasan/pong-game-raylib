@@ -5,24 +5,24 @@
 
 #include "raylib.h"
 
-struct Circle
+typedef struct 
 {
     float x, y;
     float radius;
-};
+}Circle;
 
-struct Ball
+typedef struct 
 {
     Circle circle;
     float speed_x, speed_y;
-};
+}Ball;
 
-struct Paddle
+typedef struct
 {
     float x, y;
     float width, heigth;
     float speed;
-};
+}Paddle;
 
 // Ball
 void BallInit(Ball *ball);
