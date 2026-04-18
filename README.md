@@ -2,6 +2,8 @@
 
 A classic Pong game built with [raylib](https://www.raylib.com/) in C/C++.
 
+<img width="1275" height="793" alt="pong-game" src="https://github.com/user-attachments/assets/b83c47f0-c9e6-4083-85fd-129a98e66b22" />
+
 ## Features
 
 - Single-player mode vs AI
